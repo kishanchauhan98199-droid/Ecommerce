@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Checkout — NexMart</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="navbar__inner">
+      <a href="index.html" class="navbar__logo">
+        <div class="logo-icon">🛒</div>
+        <span class="logo-text">NexMart</span>
+      </a>
+      <div class="navbar__actions" style="margin-left:auto">
+        <a href="cart.html" class="btn btn-ghost btn-sm">← Back to Cart</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="container checkout-page">
+      <h1 class="page-title">Checkout</h1>
+
+      <!-- Step indicator -->
+      <div class="checkout-steps" id="steps-wrap">
+        <div class="step-item active" id="step-ind-0">
+          <div class="step-circle">1</div>
+          <span class="step-label">Delivery</span>
+          <div class="step-connector"></div>
+        </div>
+        <div class="step-item" id="step-ind-1">
+          <div class="step-circle">2</div>
+          <span class="step-label">Payment</span>
+          <div class="step-connector"></div>
+        </div>
+        <div class="step-item" id="step-ind-2">
+          <div class="step-circle">3</div>
+          <span class="step-label">Review</span>
+        </div>
+      </div>
+
+      <div class="checkout-layout">
+        <!-- Main panel (changes per step) -->
+        <div id="checkout-main"></div>
+
+        <!-- Mini summary sidebar -->
+        <aside class="mini-summary" id="mini-summary"></aside>
+      </div>
+    </div>
+  </main>
+
+</div>
+
+<div id="toast-container"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.0/axios.min.js"></script>
+<script src="app.js"></script>
+<script>
+/* ── CHECKOUT PAGE ── */
+
+// Require login
+document.addEventListener('DOMContentLoaded', () => {
+  if (!Auth.isLoggedIn()) {
+    Toast.warning('Please sign in to checkout.');
+    setTimeout(() => { window.location.href = 'login.html?next=checkout.html'; }, 800);
+    return;
+  }
+  if (!Cart.get().length) {
+    Toast.info('Your cart is empty.');
+    setTimeout(() => { window.location.href = 'index.html'; }, 800);
+    return;
+  }
+  init();
+});
+
+let step = 0;
+let address = {};
+let paymentMethod = 'cod';
+
+function calcTotals() {
+  const subtotal = Cart.subtotal();
+  const shipping = subtotal > 999 ? 0 : 79;
+  const tax      = Math.round(subtotal * 0.18);
+  const total    = subtotal + shipping + tax;
+  return { subtotal, shipping, tax, total };
+}
+
+function setStep(n) {
+  step = n;
+  // Update indicators
+  for (let i = 0; i < 3; i++) {
+    const el = document.getElementById(`step-ind-${i}`);
+    el.classList.remove('active','done');
+    if (i < n)   el.classList.add('done');
+    if (i === n) el.classList.add('active');
+    // Update circle text
+    el.querySelector('.step-circle').textContent = i < n ? '✓' : i + 1;
+  }
+  renderStep();
+}
+
+function renderStep() {
+  if (step === 0) renderAddress();
+  if (step === 1) renderPayment();
+  if (step === 2) renderReview();
+  renderMiniSummary();
+}
+
+/* ── STEP 0: Address ── */
+function renderAddress() {
+  const main = document.getElementById('checkout-main');
+  main.innerHTML = `
+    <div class="checkout-panel">
+      <h2>Delivery Address</h2>
+      <div id="addr-error" class="server-error hidden mb-16">
+        <span>⚠</span><span id="addr-error-text"></span>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Full Name *</label>
+          <input class="form-input" id="addr-name" placeholder="John Doe" value="${address.fullName||''}"/>
+          <span class="form-error hidden" id="err-name"></span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone *</label>
+          <input class="form-input" id="addr-phone" placeholder="10-digit mobile" maxlength="10" value="${address.phone||''}"/>
+          <span class="form-error hidden" id="err-phone"></span>
+        </div>
+        <div class="form-group full">
+          <label class="form-label">Street Address *</label>
+          <input class="form-input" id="addr-street" placeholder="House no., Building, Street" value="${address.street||''}"/>
+          <span class="form-error hidden" id="err-street"></span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">City *</label>
+          <input class="form-input" id="addr-city" placeholder="Mumbai" value="${address.city||''}"/>
+          <span class="form-error hidden" id="err-city"></span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">State *</label>
+          <input class="form-input" id="addr-state" placeholder="Maharashtra" value="${address.state||''}"/>
+          <span class="form-error hidden" id="err-state"></span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Pincode *</label>
+          <input class="form-input" id="addr-pin" placeholder="400001" maxlength="6" value="${address.pincode||''}"/>
+          <span class="form-error hidden" id="err-pin"></span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Country</label>
+          <input class="form-input" id="addr-country" value="${address.country||'India'}" readonly/>
+        </div>
+      </div>
+      <div class="panel-actions">
+        <a href="cart.html" class="btn btn-outline">← Back to Cart</a>
+        <button class="btn btn-primary btn-lg" id="addr-next-btn">Continue to Payment →</button>
+      </div>
+    </div>`;
+
+  document.getElementById('addr-next-btn').addEventListener('click', () => {
+    if (!validateAddress()) return;
+    address = {
+      fullName: document.getElementById('addr-name').value.trim(),
+      phone:    document.getElementById('addr-phone').value.trim(),
+      street:   document.getElementById('addr-street').value.trim(),
+      city:     document.getElementById('addr-city').value.trim(),
+      state:    document.getElementById('addr-state').value.trim(),
+      pincode:  document.getElementById('addr-pin').value.trim(),
+      country:  'India',
+    };
+    setStep(1);
+  });
+}
+
+function showErr(id, msg) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = msg; el.classList.remove('hidden'); }
+}
+function clearErr(id) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent=''; el.classList.add('hidden'); }
+}
+
+function validateAddress() {
+  ['err-name','err-phone','err-street','err-city','err-state','err-pin'].forEach(clearErr);
+  let ok = true;
+  const name  = document.getElementById('addr-name').value.trim();
+  const phone = document.getElementById('addr-phone').value.trim();
+  const street= document.getElementById('addr-street').value.trim();
+  const city  = document.getElementById('addr-city').value.trim();
+  const state = document.getElementById('addr-state').value.trim();
+  const pin   = document.getElementById('addr-pin').value.trim();
+  if (!name)                  { showErr('err-name','Name is required.'); ok=false; }
+  if (!/^[6-9]\d{9}$/.test(phone)) { showErr('err-phone','Enter valid 10-digit phone.'); ok=false; }
+  if (!street)                { showErr('err-street','Address required.'); ok=false; }
+  if (!city)                  { showErr('err-city','City required.'); ok=false; }
+  if (!state)                 { showErr('err-state','State required.'); ok=false; }
+  if (!/^\d{6}$/.test(pin))   { showErr('err-pin','Enter valid 6-digit pincode.'); ok=false; }
+  return ok;
+}
+
+/* ── STEP 1: Payment ── */
+function renderPayment() {
+  const main = document.getElementById('checkout-main');
+  const opts = [
+    { val:'cod',  label:'Cash on Delivery', sub:'Pay when order arrives', icon:'💵' },
+    { val:'upi',  label:'UPI',              sub:'GPay, PhonePe, Paytm',   icon:'📱' },
+    { val:'card', label:'Credit/Debit Card',sub:'Visa, Mastercard, RuPay',icon:'💳' },
+    { val:'netbanking', label:'Net Banking', sub:'All major banks',        icon:'🏦' },
+  ];
+  main.innerHTML = `
+    <div class="checkout-panel">
+      <h2>Payment Method</h2>
+      <div class="payment-options">
+        ${opts.map(o => `
+          <label class="payment-opt${paymentMethod===o.val?' selected':''}">
+            <input type="radio" name="pay" value="${o.val}" ${paymentMethod===o.val?'checked':''}
+                   onchange="paymentMethod=this.value;document.querySelectorAll('.payment-opt').forEach(el=>el.classList.remove('selected'));this.closest('.payment-opt').classList.add('selected')"/>
+            <span class="payment-opt-icon">${o.icon}</span>
+            <div class="payment-opt-label">
+              <strong>${o.label}</strong>
+              <span>${o.sub}</span>
+            </div>
+          </label>`).join('')}
+      </div>
+      <div class="panel-actions">
+        <button class="btn btn-outline" onclick="setStep(0)">← Back</button>
+        <button class="btn btn-primary btn-lg" onclick="setStep(2)">Review Order →</button>
+      </div>
+    </div>`;
+}
+
+/* ── STEP 2: Review + Place Order ── */
+function renderReview() {
+  const cart = Cart.get();
+  const { subtotal, shipping, tax, total } = calcTotals();
+  const payLabels = { cod:'Cash on Delivery', upi:'UPI', card:'Credit/Debit Card', netbanking:'Net Banking' };
+  const main = document.getElementById('checkout-main');
+
+  main.innerHTML = `
+    <div class="checkout-panel">
+      <h2>Review Your Order</h2>
+
+      <div class="review-block">
+        <h4>Delivering to</h4>
+        <p><strong>${address.fullName}</strong> — ${address.phone}</p>
+        <p>${address.street}, ${address.city}, ${address.state} — ${address.pincode}</p>
+      </div>
+
+      <div class="review-block">
+        <h4>Payment</h4>
+        <p>${payLabels[paymentMethod] || paymentMethod}</p>
+      </div>
+
+      <div class="review-block">
+        <h4>Items (${Cart.totalItems()})</h4>
+        <div class="review-items mt-8">
+          ${cart.map(item => `
+            <div class="review-item">
+              <img src="${item.image||`https://picsum.photos/seed/${item._id}/100/90`}" alt="${item.name}"
+                   onerror="this.src='https://picsum.photos/seed/fallback/100/90'"/>
+              <span class="review-item-name">${item.name} × ${item.qty}</span>
+              <span class="review-item-price">${UI.currency(item.price * item.qty)}</span>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <div id="place-error" class="server-error hidden mb-16">
+        <span>⚠</span><span id="place-error-text"></span>
+      </div>
+
+      <div class="panel-actions">
+        <button class="btn btn-outline" onclick="setStep(1)">← Back</button>
+        <button class="btn btn-amber btn-xl" id="place-order-btn">
+          ⚡ Place Order — ${UI.currency(total)}
+        </button>
+      </div>
+    </div>`;
+
+  document.getElementById('place-order-btn').addEventListener('click', placeOrder);
+}
+
+/* ── Place Order API call ── */
+async function placeOrder() {
+  const btn = document.getElementById('place-order-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner spinner-sm" style="margin:0 auto"></div> Placing order…';
+
+  const cart = Cart.get();
+  const { subtotal, shipping, tax, total } = calcTotals();
+
+  const payload = {
+    items: cart.map(i => ({
+      product: i._id,
+      name: i.name,
+      price: i.price,
+      qty: i.qty,
+      image: i.image,
+    })),
+    shippingAddress: address,
+    paymentMethod,
+    itemsPrice: subtotal,
+    shippingPrice: shipping,
+    taxPrice: tax,
+    totalPrice: total,
+  };
+
+  try {
+    const { data } = await API.createOrder(payload);
+    Cart.clear();
+    window.location.href = `order-success.html?id=${data._id || data.orderId || 'ORD' + Date.now()}`;
+  } catch (err) {
+    // If API is down, simulate success for demo
+    if (!err.response) {
+      Cart.clear();
+      window.location.href = `order-success.html?id=ORD${Date.now()}`;
+      return;
+    }
+    const errEl = document.getElementById('place-error');
+    document.getElementById('place-error-text').textContent = UI.errMsg(err);
+    errEl.classList.remove('hidden');
+    btn.disabled = false;
+    btn.textContent = `⚡ Place Order — ${UI.currency(calcTotals().total)}`;
+  }
+}
+
+/* ── Mini summary ── */
+function renderMiniSummary() {
+  const cart = Cart.get();
+  const { subtotal, shipping, tax, total } = calcTotals();
+  document.getElementById('mini-summary').innerHTML = `
+    <h3>Your Order</h3>
+    ${cart.map(i => `
+      <div class="mini-cart-item">
+        <img src="${i.image||`https://picsum.photos/seed/${i._id}/80/72`}" class="mini-cart-img" alt="${i.name}"
+             onerror="this.src='https://picsum.photos/seed/fallback/80/72'"/>
+        <span class="mini-cart-name">${i.name} ×${i.qty}</span>
+        <span class="mini-cart-price">${UI.currency(i.price*i.qty)}</span>
+      </div>`).join('')}
+    <div class="summary-divider"></div>
+    <div class="summary-rows">
+      <div class="summary-row"><span>Subtotal</span><span>${UI.currency(subtotal)}</span></div>
+      <div class="summary-row"><span>Shipping</span><span class="${shipping===0?'free-badge':''}">${shipping===0?'FREE':UI.currency(shipping)}</span></div>
+      <div class="summary-row"><span>GST (18%)</span><span>${UI.currency(tax)}</span></div>
+    </div>
+    <div class="summary-divider"></div>
+    <div class="summary-total"><span>Total</span><span>${UI.currency(total)}</span></div>`;
+}
+
+function init() {
+  renderStep();
+}
+</script>
+</body>
+</html>

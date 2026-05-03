@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cart — NexMart</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="navbar__inner">
+      <a href="index.html" class="navbar__logo">
+        <div class="logo-icon">🛒</div>
+        <span class="logo-text">NexMart</span>
+      </a>
+      <form class="navbar__search" id="search-form">
+        <input type="text" id="search-input" class="search-input" placeholder="Search products…"/>
+        <button type="submit" class="search-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+      </form>
+      <div class="navbar__actions">
+        <a href="cart.html" class="nav-icon-btn" style="color:var(--indigo-bright)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+          <span class="cart-badge hidden">0</span>
+        </a>
+        <a href="login.html" class="btn btn-primary btn-sm" id="nav-login-link">Sign In</a>
+        <div class="nav-dropdown-wrap hidden" id="nav-user-wrap">
+          <button class="nav-user-btn" id="nav-user-btn">
+            <div class="user-avatar-sm" id="nav-user-avatar">U</div>
+            <span id="nav-user-name">Account</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="nav-dropdown hidden" id="nav-dropdown">
+            <a href="orders.html">📦 My Orders</a>
+            <div class="nav-dropdown-divider"></div>
+            <button class="danger" id="nav-logout-btn">↩ Logout</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="container cart-page">
+      <h1 class="page-title" id="cart-title">Shopping Cart</h1>
+      <div id="cart-wrap"></div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer__bottom">© <span id="year"></span> NexMart. All rights reserved.</div>
+  </footer>
+</div>
+
+<div id="toast-container"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.0/axios.min.js"></script>
+<script src="app.js"></script>
+<script>
+/* ── CART PAGE ── */
+
+function calcTotals() {
+  const subtotal = Cart.subtotal();
+  const shipping = subtotal > 999 ? 0 : 79;
+  const tax      = Math.round(subtotal * 0.18);
+  const total    = subtotal + shipping + tax;
+  return { subtotal, shipping, tax, total };
+}
+
+function renderCart() {
+  const cart = Cart.get();
+  const wrap = document.getElementById('cart-wrap');
+  document.getElementById('cart-title').textContent =
+    cart.length ? `Shopping Cart (${Cart.totalItems()} items)` : 'Shopping Cart';
+
+  // Empty state
+  if (!cart.length) {
+    wrap.innerHTML = `
+      <div class="empty-state" style="min-height:400px">
+        <div class="empty-icon">🛒</div>
+        <h3 class="empty-title">Your cart is empty</h3>
+        <p class="empty-sub">Add some products and they'll appear here.</p>
+        <a href="index.html" class="btn btn-primary btn-lg mt-16">Start Shopping</a>
+      </div>`;
+    return;
+  }
+
+  const { subtotal, shipping, tax, total } = calcTotals();
+
+  wrap.innerHTML = `
+    <div class="cart-layout">
+      <!-- Items list -->
+      <div class="cart-items-list" id="cart-items">
+        ${cart.map(item => renderCartItem(item)).join('')}
+      </div>
+
+      <!-- Summary sidebar -->
+      <aside class="summary-card">
+        <h2 class="summary-title">Order Summary</h2>
+        <div class="summary-rows">
+          <div class="summary-row">
+            <span>Subtotal (${Cart.totalItems()} items)</span>
+            <span>${UI.currency(subtotal)}</span>
+          </div>
+          <div class="summary-row">
+            <span>Shipping</span>
+            <span class="${shipping === 0 ? 'free-badge' : ''}">${shipping === 0 ? 'FREE' : UI.currency(shipping)}</span>
+          </div>
+          <div class="summary-row">
+            <span>GST (18%)</span>
+            <span>${UI.currency(tax)}</span>
+          </div>
+        </div>
+        <div class="summary-divider"></div>
+        <div class="summary-total">
+          <span>Total</span>
+          <span>${UI.currency(total)}</span>
+        </div>
+        <button class="btn btn-primary btn-full btn-xl" id="checkout-btn">
+          Proceed to Checkout →
+        </button>
+        <a href="index.html" class="btn btn-ghost btn-full mt-8">Continue Shopping</a>
+        ${shipping > 0 ? `<p class="summary-note">🎉 Add ${UI.currency(999 - subtotal)} more for FREE shipping!</p>` : `<p class="summary-note">🎉 You qualify for FREE shipping!</p>`}
+      </aside>
+    </div>`;
+
+  // Bind item controls
+  bindCartControls();
+
+  // Checkout button
+  document.getElementById('checkout-btn').addEventListener('click', () => {
+    if (!UI.requireAuth('checkout.html')) return;
+    window.location.href = 'checkout.html';
+  });
+}
+
+function renderCartItem(item) {
+  const imgSrc = item.image || `https://picsum.photos/seed/${item._id}/200/180`;
+  return `
+    <div class="cart-item" data-id="${item._id}">
+      <img src="${imgSrc}" alt="${item.name}" class="cart-item__img"
+           onerror="this.src='https://picsum.photos/seed/fallback/200/180'"/>
+      <div class="cart-item__info">
+        <p class="cart-item__cat">${item.category || ''}</p>
+        <h3 class="cart-item__name">
+          <a href="product.html?id=${item._id}">${item.name}</a>
+        </h3>
+        <p class="cart-item__price">${UI.currency(item.price)} each</p>
+        <div class="cart-item__controls">
+          <div class="qty-control">
+            <button class="qty-btn" data-action="dec" data-id="${item._id}">−</button>
+            <span class="qty-val">${item.qty}</span>
+            <button class="qty-btn" data-action="inc" data-id="${item._id}">+</button>
+          </div>
+          <button class="remove-btn" data-remove="${item._id}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            Remove
+          </button>
+        </div>
+      </div>
+      <div class="cart-item__subtotal">${UI.currency(item.price * item.qty)}</div>
+    </div>`;
+}
+
+function bindCartControls() {
+  document.getElementById('cart-items').addEventListener('click', e => {
+    const btn    = e.target.closest('[data-action]');
+    const remBtn = e.target.closest('[data-remove]');
+
+    if (btn) {
+      const id  = btn.dataset.id;
+      const item = Cart.get().find(i => i._id === id);
+      if (!item) return;
+      const newQty = btn.dataset.action === 'inc' ? item.qty + 1 : item.qty - 1;
+      Cart.setQty(id, newQty);
+      if (newQty < 1) Toast.info('Item removed.');
+      renderCart();
+    }
+
+    if (remBtn) {
+      const id = remBtn.dataset.remove;
+      const item = Cart.get().find(i => i._id === id);
+      Cart.remove(id);
+      Toast.info(`"${item?.name}" removed.`);
+      renderCart();
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('year').textContent = new Date().getFullYear();
+  renderCart();
+});
+</script>
+</body>
+</html>

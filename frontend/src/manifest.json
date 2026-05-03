@@ -1,0 +1,37 @@
+// client/public/manifest.json
+// Place this file in client/public/manifest.json
+
+const manifest = {
+  "short_name": "SGH",
+  "name": "Style Gallery Hub",
+  "description": "Curated fashion — your premium online fashion store",
+  "icons": [
+    { "src": "favicon.ico",            "sizes": "64x64 32x32 24x24 16x16", "type": "image/x-icon" },
+    { "src": "logo192.png",            "type": "image/png", "sizes": "192x192" },
+    { "src": "logo512.png",            "type": "image/png", "sizes": "512x512" },
+    { "src": "logo512-maskable.png",   "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#0f0f0f",
+  "background_color": "#faf9f6",
+  "orientation": "portrait-primary",
+  "categories": ["shopping", "lifestyle"],
+  "lang": "en-IN",
+  "dir": "ltr",
+  "scope": "/",
+  "prefer_related_applications": false,
+  "shortcuts": [
+    { "name": "Shop", "short_name": "Shop", "description": "Browse products", "url": "/products", "icons": [{ "src": "icons/shop.png", "sizes": "96x96" }] },
+    { "name": "Cart", "short_name": "Cart", "description": "View your cart",  "url": "/cart",     "icons": [{ "src": "icons/cart.png", "sizes": "96x96" }] },
+    { "name": "Orders","short_name":"Orders","description":"Track your orders","url": "/orders",   "icons": [{ "src": "icons/orders.png","sizes": "96x96" }] }
+  ],
+  "screenshots": [
+    { "src": "screenshots/home.png",     "sizes": "1280x720",  "type": "image/png", "label": "Home Page" },
+    { "src": "screenshots/products.png", "sizes": "1280x720",  "type": "image/png", "label": "Product Listing" },
+    { "src": "screenshots/mobile.png",   "sizes": "390x844",   "type": "image/png", "label": "Mobile View", "form_factor": "narrow" }
+  ]
+};
+
+console.log('manifest.json content:', JSON.stringify(manifest, null, 2));
+module.exports = manifest;

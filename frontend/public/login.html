@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sign In — NexMart</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="navbar__inner">
+      <a href="index.html" class="navbar__logo">
+        <div class="logo-icon">🛒</div>
+        <span class="logo-text">NexMart</span>
+      </a>
+      <div class="navbar__actions" style="margin-left:auto">
+        <a href="index.html" class="btn btn-ghost btn-sm">← Back to Shop</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="auth-page">
+      <div class="auth-card">
+
+        <!-- Tabs -->
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="tab-login">Sign In</button>
+          <button class="auth-tab" id="tab-register">Create Account</button>
+        </div>
+
+        <!-- ── LOGIN PANEL ── -->
+        <div class="auth-body" id="panel-login">
+          <h2 class="auth-title">Welcome Back</h2>
+          <p class="auth-sub">Sign in to your NexMart account</p>
+
+          <div id="login-server-error" class="server-error hidden">
+            <span>⚠</span><span id="login-error-text"></span>
+          </div>
+
+          <form class="auth-form" id="login-form" novalidate>
+            <div class="form-group">
+              <label class="form-label">Email Address</label>
+              <input type="email" class="form-input" id="login-email"
+                     placeholder="you@example.com" autocomplete="email"/>
+              <span class="form-error hidden" id="login-email-err"></span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Password</label>
+              <input type="password" class="form-input" id="login-password"
+                     placeholder="••••••••" autocomplete="current-password"/>
+              <span class="form-error hidden" id="login-pass-err"></span>
+            </div>
+            <div class="form-forgot">
+              <a href="#">Forgot password?</a>
+            </div>
+            <button type="submit" class="btn btn-primary btn-full btn-lg" id="login-btn">
+              Sign In
+            </button>
+          </form>
+
+          <p class="auth-footer">
+            Don't have an account?
+            <button class="link-btn" id="switch-to-register">Sign up free</button>
+          </p>
+        </div>
+
+        <!-- ── REGISTER PANEL ── -->
+        <div class="auth-body hidden" id="panel-register">
+          <h2 class="auth-title">Join NexMart</h2>
+          <p class="auth-sub">Create your free account today</p>
+
+          <div id="reg-server-error" class="server-error hidden">
+            <span>⚠</span><span id="reg-error-text"></span>
+          </div>
+
+          <form class="auth-form" id="register-form" novalidate>
+            <div class="form-group">
+              <label class="form-label">Full Name</label>
+              <input type="text" class="form-input" id="reg-name"
+                     placeholder="John Doe" autocomplete="name"/>
+              <span class="form-error hidden" id="reg-name-err"></span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email Address</label>
+              <input type="email" class="form-input" id="reg-email"
+                     placeholder="you@example.com" autocomplete="email"/>
+              <span class="form-error hidden" id="reg-email-err"></span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Password</label>
+              <input type="password" class="form-input" id="reg-pass"
+                     placeholder="Min 6 characters" autocomplete="new-password"/>
+              <span class="form-error hidden" id="reg-pass-err"></span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Confirm Password</label>
+              <input type="password" class="form-input" id="reg-confirm"
+                     placeholder="Repeat password" autocomplete="new-password"/>
+              <span class="form-error hidden" id="reg-confirm-err"></span>
+            </div>
+            <button type="submit" class="btn btn-primary btn-full btn-lg" id="reg-btn">
+              Create Account
+            </button>
+          </form>
+
+          <p class="auth-footer">
+            Already have an account?
+            <button class="link-btn" id="switch-to-login">Sign in</button>
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+</div>
+
+<div id="toast-container"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.0/axios.min.js"></script>
+<script src="app.js"></script>
+<script>
+/* ── LOGIN PAGE ── */
+
+// If already logged in → redirect
+if (Auth.isLoggedIn()) {
+  window.location.href = 'index.html';
+}
+
+// Determine redirect destination after login
+const nextPage = new URLSearchParams(location.search).get('next') || 'index.html';
+
+/* ── Tab switching ── */
+function showTab(tab) {
+  const isLogin = tab === 'login';
+  document.getElementById('panel-login').classList.toggle('hidden', !isLogin);
+  document.getElementById('panel-register').classList.toggle('hidden', isLogin);
+  document.getElementById('tab-login').classList.toggle('active', isLogin);
+  document.getElementById('tab-register').classList.toggle('active', !isLogin);
+}
+document.getElementById('tab-login').addEventListener('click',    () => showTab('login'));
+document.getElementById('tab-register').addEventListener('click', () => showTab('register'));
+document.getElementById('switch-to-register').addEventListener('click', () => showTab('register'));
+document.getElementById('switch-to-login').addEventListener('click',    () => showTab('login'));
+
+/* ── Field validation helpers ── */
+function showFieldError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg; el.classList.remove('hidden');
+}
+function clearFieldError(id) {
+  const el = document.getElementById(id);
+  el.textContent = ''; el.classList.add('hidden');
+}
+function clearAllErrors() {
+  ['login-email-err','login-pass-err','reg-name-err','reg-email-err','reg-pass-err','reg-confirm-err']
+    .forEach(clearFieldError);
+  document.getElementById('login-server-error').classList.add('hidden');
+  document.getElementById('reg-server-error').classList.add('hidden');
+}
+
+/* ── Loading state on button ── */
+function setLoading(btnId, loading) {
+  const btn = document.getElementById(btnId);
+  btn.disabled = loading;
+  btn.innerHTML = loading
+    ? '<div class="spinner spinner-sm" style="border-top-color:white;margin:0 auto"></div>'
+    : btn.dataset.label;
+}
+
+/* ── LOGIN FORM ── */
+document.addEventListener('DOMContentLoaded', () => {
+  const loginBtn = document.getElementById('login-btn');
+  loginBtn.dataset.label = loginBtn.textContent;
+
+  document.getElementById('login-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    clearAllErrors();
+
+    const email    = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+
+    let valid = true;
+    if (!email.includes('@'))        { showFieldError('login-email-err', 'Enter a valid email.'); valid = false; }
+    if (password.length < 6)         { showFieldError('login-pass-err', 'Password must be ≥ 6 chars.'); valid = false; }
+    if (!valid) return;
+
+    setLoading('login-btn', true);
+    try {
+      await Auth.login(email, password);
+      Toast.success('Welcome back! Redirecting…');
+      setTimeout(() => { window.location.href = nextPage; }, 900);
+    } catch (err) {
+      const errEl = document.getElementById('login-server-error');
+      document.getElementById('login-error-text').textContent = UI.errMsg(err);
+      errEl.classList.remove('hidden');
+      // Demo: auto-fill hint when server is down
+      if (!err.response) {
+        document.getElementById('login-error-text').textContent =
+          'API server offline. In production, your backend /auth/login responds here.';
+      }
+    } finally {
+      setLoading('login-btn', false);
+    }
+  });
+
+  /* ── REGISTER FORM ── */
+  const regBtn = document.getElementById('reg-btn');
+  regBtn.dataset.label = regBtn.textContent;
+
+  document.getElementById('register-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    clearAllErrors();
+
+    const name     = document.getElementById('reg-name').value.trim();
+    const email    = document.getElementById('reg-email').value.trim();
+    const pass     = document.getElementById('reg-pass').value;
+    const confirm  = document.getElementById('reg-confirm').value;
+
+    let valid = true;
+    if (!name)                 { showFieldError('reg-name-err', 'Name is required.'); valid = false; }
+    if (!email.includes('@'))  { showFieldError('reg-email-err', 'Enter a valid email.'); valid = false; }
+    if (pass.length < 6)       { showFieldError('reg-pass-err', 'Password must be ≥ 6 chars.'); valid = false; }
+    if (pass !== confirm)      { showFieldError('reg-confirm-err', 'Passwords do not match.'); valid = false; }
+    if (!valid) return;
+
+    setLoading('reg-btn', true);
+    try {
+      await Auth.register(name, email, pass);
+      Toast.success('Account created! Welcome to NexMart!');
+      setTimeout(() => { window.location.href = nextPage; }, 900);
+    } catch (err) {
+      const errEl = document.getElementById('reg-server-error');
+      document.getElementById('reg-error-text').textContent = UI.errMsg(err);
+      errEl.classList.remove('hidden');
+    } finally {
+      setLoading('reg-btn', false);
+    }
+  });
+});
+</script>
+</body>
+</html>

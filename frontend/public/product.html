@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Product — NexMart</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- NAVBAR (identical across pages) -->
+  <nav class="navbar">
+    <div class="navbar__inner">
+      <a href="index.html" class="navbar__logo">
+        <div class="logo-icon">🛒</div>
+        <span class="logo-text">NexMart</span>
+      </a>
+      <form class="navbar__search" id="search-form">
+        <input type="text" id="search-input" class="search-input" placeholder="Search products…"/>
+        <button type="submit" class="search-btn">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </button>
+      </form>
+      <div class="navbar__actions">
+        <a href="cart.html" class="nav-icon-btn">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+          <span class="cart-badge hidden">0</span>
+        </a>
+        <a href="login.html" class="btn btn-primary btn-sm" id="nav-login-link">Sign In</a>
+        <div class="nav-dropdown-wrap hidden" id="nav-user-wrap">
+          <button class="nav-user-btn" id="nav-user-btn">
+            <div class="user-avatar-sm" id="nav-user-avatar">U</div>
+            <span id="nav-user-name">Account</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="nav-dropdown hidden" id="nav-dropdown">
+            <a href="orders.html">📦 My Orders</a>
+            <div class="nav-dropdown-divider"></div>
+            <button class="danger" id="nav-logout-btn">↩ Logout</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="container product-detail" id="product-wrap">
+      <div class="spinner-overlay"><div class="spinner"></div><p class="spinner-label">Loading product…</p></div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer__bottom">© <span id="year"></span> NexMart. All rights reserved.</div>
+  </footer>
+</div>
+
+<div id="toast-container"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.0/axios.min.js"></script>
+<script src="app.js"></script>
+<script>
+/* ── PRODUCT DETAIL PAGE ── */
+
+const productId = new URLSearchParams(location.search).get('id');
+
+// Mock product fallback
+function mockProduct(id) {
+  return {
+    _id: id,
+    name: 'Premium Wireless Headphones Pro',
+    category: 'Electronics',
+    price: 2999,
+    originalPrice: 4999,
+    rating: 4.5,
+    reviewCount: 1240,
+    stock: 18,
+    image: `https://picsum.photos/seed/${id}/600/560`,
+    description: `Experience next-level audio with our flagship wireless headphones. Featuring active noise cancellation, a 30-hour battery with fast charging, and premium memory foam ear cushions designed for marathon listening sessions. The redesigned 40mm drivers deliver studio-quality sound in a slim, travel-friendly form factor.`,
+    features: [
+      'Active Noise Cancellation (ANC)',
+      '30-hour battery with 15-min fast charge',
+      'Bluetooth 5.3 — up to 15m range',
+      'Built-in AI microphone for crystal calls',
+      'Foldable for compact travel',
+      'USB-C + 3.5mm dual charging',
+    ],
+  };
+}
+
+async function loadProduct() {
+  if (!productId) { window.location.href = 'index.html'; return; }
+
+  const wrap = document.getElementById('product-wrap');
+
+  let product;
+  try {
+    const { data } = await API.getProduct(productId);
+    product = data;
+  } catch {
+    product = mockProduct(productId);
+  }
+
+  // Build image array (main + 2 alternates using picsum seeds)
+  const images = [
+    product.image || `https://picsum.photos/seed/${product._id}/600/560`,
+    `https://picsum.photos/seed/${product._id}b/600/560`,
+    `https://picsum.photos/seed/${product._id}c/600/560`,
+  ];
+
+  const disc = UI.discount(product.price, product.originalPrice);
+
+  document.title = `${product.name} — NexMart`;
+
+  wrap.innerHTML = `
+    <div class="breadcrumb">
+      <a href="index.html">Home</a>
+      <span class="breadcrumb-sep">/</span>
+      <a href="index.html?category=${product.category}">${product.category}</a>
+      <span class="breadcrumb-sep">/</span>
+      <span>${product.name}</span>
+    </div>
+
+    <div class="product-layout">
+      <!-- Gallery -->
+      <div class="gallery">
+        <div class="gallery__main">
+          <img src="${images[0]}" alt="${product.name}" id="main-img"
+               onerror="this.src='https://picsum.photos/seed/fallback/600/560'"/>
+        </div>
+        <div class="gallery__thumbs" id="thumbs-wrap">
+          ${images.map((img,i) => `
+            <div class="gallery__thumb ${i===0?'active':''}" data-idx="${i}" data-src="${img}">
+              <img src="${img}" alt="View ${i+1}" onerror="this.parentElement.style.display='none'"/>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- Info Panel -->
+      <div class="product-panel">
+        <p class="product-cat">${product.category}</p>
+        <h1 class="product-title">${product.name}</h1>
+
+        <div class="product-rating">
+          ${UI.stars(product.rating)}
+          <span style="font-size:14px;color:var(--text-1);font-weight:600">${product.rating}</span>
+          <span class="rating-count">(${(product.reviewCount||0).toLocaleString()} reviews)</span>
+        </div>
+
+        <div class="product-pricing">
+          <span class="product-price-main">${UI.currency(product.price)}</span>
+          ${product.originalPrice ? `
+            <span class="product-price-old">${UI.currency(product.originalPrice)}</span>
+            <span class="product-discount">${disc}% off</span>
+          ` : ''}
+        </div>
+
+        <p class="product-desc">${product.description || ''}</p>
+
+        ${product.features?.length ? `
+          <ul class="product-features">
+            ${product.features.map(f => `
+              <li class="product-feature"><span class="feature-dot"></span>${f}</li>`).join('')}
+          </ul>` : ''}
+
+        <div class="qty-row">
+          <span class="qty-label">Quantity:</span>
+          <div class="qty-control">
+            <button class="qty-btn" id="qty-dec">−</button>
+            <span class="qty-val" id="qty-val">1</span>
+            <button class="qty-btn" id="qty-inc">+</button>
+          </div>
+        </div>
+
+        <div class="product-actions">
+          <button class="btn btn-primary btn-lg" id="add-cart-btn">
+            🛒 Add to Cart
+          </button>
+          <button class="btn btn-amber btn-lg" id="buy-now-btn">
+            ⚡ Buy Now
+          </button>
+        </div>
+
+        <p class="product-stock mt-16">
+          ${product.stock > 0
+            ? `<span class="stock-in">✓ In stock</span> — ${product.stock} units left`
+            : `<span class="stock-out">✗ Out of stock</span>`}
+        </p>
+      </div>
+    </div>`;
+
+  // ── Gallery thumb switching ──
+  document.getElementById('thumbs-wrap').addEventListener('click', e => {
+    const thumb = e.target.closest('.gallery__thumb');
+    if (!thumb) return;
+    document.getElementById('main-img').src = thumb.dataset.src;
+    document.querySelectorAll('.gallery__thumb').forEach(t => t.classList.remove('active'));
+    thumb.classList.add('active');
+  });
+
+  // ── Qty control ──
+  let qty = 1;
+  const qtyVal = document.getElementById('qty-val');
+  document.getElementById('qty-dec').addEventListener('click', () => {
+    if (qty > 1) { qty--; qtyVal.textContent = qty; }
+  });
+  document.getElementById('qty-inc').addEventListener('click', () => {
+    if (qty < (product.stock || 99)) { qty++; qtyVal.textContent = qty; }
+  });
+
+  // ── Add to Cart ──
+  document.getElementById('add-cart-btn').addEventListener('click', () => {
+    if (product.stock === 0) { Toast.error('Out of stock!'); return; }
+    Cart.add(product, qty);
+    Toast.success(`${qty}× "${product.name}" added to cart!`);
+  });
+
+  // ── Buy Now ──
+  document.getElementById('buy-now-btn').addEventListener('click', () => {
+    if (product.stock === 0) { Toast.error('Out of stock!'); return; }
+    Cart.add(product, qty);
+    Toast.success('Added to cart! Redirecting…');
+    setTimeout(() => { window.location.href = 'cart.html'; }, 800);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('year').textContent = new Date().getFullYear();
+  loadProduct();
+});
+</script>
+</body>
+</html>

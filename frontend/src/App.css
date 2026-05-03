@@ -1,0 +1,87 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f9f9f9;
+}
+
+/* Navbar */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 30px;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.logo {
+  color: #4facfe;
+}
+
+.search {
+  width: 300px;
+  padding: 8px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+
+.nav-icons span {
+  margin: 0 10px;
+  cursor: pointer;
+}
+
+.login-btn {
+  padding: 6px 12px;
+  border: none;
+  background: #4facfe;
+  color: white;
+  border-radius: 5px;
+}
+
+/* Hero */
+.hero {
+  text-align: center;
+  padding: 80px;
+  background: linear-gradient(to right, #4facfe, #6a11cb);
+  color: white;
+}
+
+.shop-btn {
+  margin-top: 10px;
+  padding: 10px 20px;
+  border: none;
+  background: white;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+/* Categories */
+.categories {
+  text-align: center;
+  padding: 50px 20px;
+}
+
+.category-grid {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin-top: 20px;
+}
+
+.card {
+  width: 200px;
+  padding: 30px;
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  transition: 0.3s;
+}
+
+.card:hover {
+  transform: translateY(-10px);
+}
+
+.icon {
+  font-size: 40px;
+  margin-bottom: 10px;
+}

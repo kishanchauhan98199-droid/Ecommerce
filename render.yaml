@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: style-gallery-hub-api
+    env: node
+    region: singapore          # closest to India
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key:   NODE_ENV
+        value: production
+      - key:   PORT
+        value: 10000
+      - key:   MONGO_URI
+        sync:  false           # set in Render dashboard
+      - key:   JWT_SECRET
+        sync:  false
+      - key:   JWT_EXPIRE
+        value: 30d
+      - key:   CLIENT_URL
+        value: https://your-app.vercel.app
+      - key:   CLOUDINARY_CLOUD_NAME
+        sync:  false
+      - key:   CLOUDINARY_API_KEY
+        sync:  false
+      - key:   CLOUDINARY_API_SECRET
+        sync:  false
+      - key:   STRIPE_SECRET_KEY
+        sync:  false
+      - key:   STRIPE_WEBHOOK_SECRET
+        sync:  false
+      - key:   RAZORPAY_KEY_ID
+        sync:  false
+      - key:   RAZORPAY_KEY_SECRET
+        sync:  false
+      - key:   SMTP_HOST
+        value: smtp.gmail.com
+      - key:   SMTP_PORT
+        value: 587
+      - key:   SMTP_USER
+        sync:  false
+      - key:   SMTP_PASS
+        sync:  false

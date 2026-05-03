@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Order Confirmed — NexMart</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- Minimal navbar -->
+  <nav class="navbar">
+    <div class="navbar__inner">
+      <a href="index.html" class="navbar__logo">
+        <div class="logo-icon">🛒</div>
+        <span class="logo-text">NexMart</span>
+      </a>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="success-page">
+      <div class="success-card">
+
+        <!-- Animated check -->
+        <div class="success-anim">
+          <div class="check-circle">✓</div>
+        </div>
+
+        <h1 class="success-title">Order Confirmed!</h1>
+        <p class="success-sub">
+          Thank you for your purchase. Your order has been placed and will be
+          processed shortly. You'll receive a confirmation shortly.
+        </p>
+
+        <div class="success-oid">
+          <span class="success-oid-label">Order ID</span>
+          <span class="success-oid-val" id="order-id-display">—</span>
+        </div>
+
+        <!-- Delivery tracking steps -->
+        <div class="track-steps">
+          <div class="track-item done">
+            <div class="track-icon">✓</div>
+            <span class="track-label">Confirmed</span>
+          </div>
+          <div class="track-item">
+            <div class="track-icon">📦</div>
+            <span class="track-label">Packing</span>
+          </div>
+          <div class="track-item">
+            <div class="track-icon">🚚</div>
+            <span class="track-label">Shipped</span>
+          </div>
+          <div class="track-item">
+            <div class="track-icon">🏠</div>
+            <span class="track-label">Delivered</span>
+          </div>
+        </div>
+
+        <div class="success-actions">
+          <a href="orders.html" class="btn btn-primary btn-lg">View My Orders</a>
+          <a href="index.html" class="btn btn-outline btn-lg">Continue Shopping</a>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+</div>
+
+<div id="toast-container"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.0/axios.min.js"></script>
+<script src="app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Show order ID from URL param
+  const orderId = new URLSearchParams(location.search).get('id') || ('ORD' + Date.now());
+  document.getElementById('order-id-display').textContent = orderId;
+
+  // Confetti-style success animation (pure CSS handled)
+  setTimeout(() => Toast.success('Order placed successfully! 🎉'), 400);
+});
+</script>
+</body>
+</html>

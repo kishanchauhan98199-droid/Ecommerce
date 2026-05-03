@@ -1,0 +1,167 @@
+# ════════════════════════════════════════════════════════════
+#  Style Gallery Hub — GitHub Actions CI/CD Pipeline
+#  Triggers:
+#    - Pull request to main: run tests + lint
+#    - Push to main:         deploy to Render + Vercel
+# ════════════════════════════════════════════════════════════
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ──────────────────────────────────────────────────────────
+  # Job 1: Test & Lint
+  # ──────────────────────────────────────────────────────────
+  test:
+    name: Test & Lint
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:7
+        ports: ['27017:27017']
+        options: >-
+          --health-cmd "mongosh --eval \"db.adminCommand('ping')\""
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      # ── Server tests ──────────────────────────────────────
+      - name: Install server dependencies
+        working-directory: ./server
+        run: npm ci
+
+      - name: Run server tests
+        working-directory: ./server
+        env:
+          MONGO_URI:  mongodb://localhost:27017/sgh_test
+          JWT_SECRET: test_secret_at_least_32_characters_long
+          NODE_ENV:   test
+        run: npm test -- --forceExit --passWithNoTests
+
+      - name: Upload test coverage
+        uses: codecov/codecov-action@v4
+        with:
+          directory: ./server/coverage
+          flags: server
+        continue-on-error: true
+
+      # ── Client build check ─────────────────────────────────
+      - name: Setup Node.js for client
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        working-directory: ./client
+        run: npm ci
+
+      - name: Build client (verify it compiles)
+        working-directory: ./client
+        env:
+          REACT_APP_API_URL: http://localhost:5000/api
+          CI: false           # treat warnings as non-fatal
+        run: npm run build
+
+  # ──────────────────────────────────────────────────────────
+  # Job 2: Deploy to Render (server) — main branch only
+  # ──────────────────────────────────────────────────────────
+  deploy-server:
+    name: Deploy Server → Render
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Trigger Render Deploy Hook
+        run: |
+          curl -s -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}" \
+            -H "Accept: application/json" | jq .
+
+      - name: Wait for Render deployment
+        run: |
+          echo "⏳ Waiting 90s for Render to finish deploying..."
+          sleep 90
+
+      - name: Verify API health
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.RENDER_API_URL }}/health")
+          echo "Health check status: $STATUS"
+          if [ "$STATUS" != "200" ]; then exit 1; fi
+
+  # ──────────────────────────────────────────────────────────
+  # Job 3: Deploy to Vercel (client) — main branch only
+  # ──────────────────────────────────────────────────────────
+  deploy-client:
+    name: Deploy Client → Vercel
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Install client dependencies
+        working-directory: ./client
+        run: npm ci
+
+      - name: Deploy to Vercel Production
+        working-directory: ./client
+        env:
+          VERCEL_TOKEN:   ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID:  ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+          vercel build --prod --token=$VERCEL_TOKEN
+          vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN
+
+  # ──────────────────────────────────────────────────────────
+  # Job 4: Notify on completion
+  # ──────────────────────────────────────────────────────────
+  notify:
+    name: Notify Team
+    needs: [deploy-server, deploy-client]
+    runs-on: ubuntu-latest
+    if: always() && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Send Slack notification
+        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+        run: |
+          STATUS="${{ needs.deploy-server.result == 'success' && needs.deploy-client.result == 'success' && '✅ Deployment successful!' || '❌ Deployment failed!' }}"
+          curl -s -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+            -H 'Content-type: application/json' \
+            -d "{\"text\":\"$STATUS\nCommit: ${{ github.event.head_commit.message }}\nBy: ${{ github.actor }}\nBranch: main\"}"
