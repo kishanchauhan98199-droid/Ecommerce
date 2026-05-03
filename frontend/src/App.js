@@ -1,5 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
-import "./style.css";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 
 /* ══════════════════════════════════════════════════════
    SGH — STYLE GALLERY HUB  |  App.js  (Advanced)
@@ -1403,7 +1402,7 @@ export default function App() {
   };
 
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
-  const totalPrice = cart.reduce((s, i) => s + i.price * i.qty, 0);
+  //const totalPrice = cart.reduce((s, i) => s + i.price * i.qty, 0);
 
   /* wishlist toggle */
   const toggleWishlist = (id, name) => {
