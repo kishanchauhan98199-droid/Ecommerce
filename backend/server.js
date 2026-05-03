@@ -313,7 +313,9 @@ async function start() {
     console.log("╚══════════════════════════════════════════════╝\n");
   });
 }
-
+app.get("/", (req, res) => {
+  res.send("Server is running 🚀");
+});
 start().catch((err) => {
   console.error("Failed to start server:", err);
   process.exit(1);
